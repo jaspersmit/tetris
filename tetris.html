@@ -20,6 +20,9 @@
         border: 20px solid grey;;
     }
 
+    #score {
+        font-weight: bold;
+    }
 
 </style>
 
@@ -27,6 +30,13 @@
 <canvas id="canvas" width="300" height="600">
 
 </canvas>
+</div>
+<div id="score-container">
+    Your score:
+    <span id="score">
+        0
+    </span>
+
 </div>
 
 <script>
@@ -220,6 +230,7 @@
     let downDown = false;
     let lastStride = 0;
     let lastRotate = 0;
+    let score = 0;
 
     function copyField(field) {
         const copy = Array(200).fill(false);
@@ -261,21 +272,27 @@
         return false;
     }
 
+    const scoreSpan = document.getElementById('score');
+
     function burnLines() {
+        let lines = 0;
         for (let y = 0; y < 20; y++) {
             let x;
             for (x = 0; x < 10; x++) {
                 if (!field[y * 10 + x]) break;
             }
             if (x === 10) {
+                lines++;
                 for (let ty = y; ty >= 1; ty--) {
                     for (let tx = 0; tx < 10; tx++) {
                         field[ty * 10 + tx] = field[(ty - 1) * 10 + tx];
                     }
                 }
             }
-
         }
+        score += [0, 40, 100, 300, 1200][lines];
+        scoreSpan.innerText = score;
+
     }
 
     function stride(delta) {
@@ -349,9 +366,6 @@
             lastRotate = time;
         }
 
-
-        // const displayField = copyField(field);
-        // addPiece(displayField, pieces[currentPiece][currentRotation], pieceX, pieceY);
         clearField();
         renderField(field, '#aaa');
         const pieceField = Array(200).fill(false);
