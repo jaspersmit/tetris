@@ -7,14 +7,26 @@
 <body>
 
 <style>
-    #field {
-        font-family: monospace;
-        white-space: pre;
+    body {
+        background-color: #042502;
+        color: #aaa;
     }
+    .box {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #canvas {
+        border: 20px solid grey;;
+    }
+
+
 </style>
 
-<div id="field">
+<div class="box">
+<canvas id="canvas" width="300" height="600">
 
+</canvas>
 </div>
 
 <script>
@@ -166,18 +178,34 @@
         field[i] = false;
     }
 
-    function renderField(field) {
-        const div = document.getElementById('field');
-        let str = ' ';
+    const canvas = document.getElementById('canvas');
+
+    function clearField() {
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#020b25';
+        context.fillRect(0, 0, 400, 800);
+    }
+
+    function renderField(field, color) {
+        const context = canvas.getContext('2d');
+        let width = 30;
+        let height = 30;
+        let innerWidth = 26;
+        let innerHeight = 26;
+
+        context.fillStyle = color;
         for (let i = 0; i < 200; i++) {
-            if (i % 10 === 0) str += '\n';
-            if (field[i]) {
-                str += 'X';
-            } else {
-                str += '.';
-            }
+            const y = Math.floor(i / 10);
+            const x = i % 10;
+            if (field[i])
+                context.fillRect(
+                    x * width + (width - innerWidth) / 2,
+                    y * height + (height - innerHeight) / 2,
+                    innerWidth,
+                    innerHeight);
+
         }
-        div.innerText = str;
+
     }
 
 
@@ -304,15 +332,14 @@
                 burnLines();
                 pickPiece();
             }
-
             prevFrame = time;
         }
 
-        if (leftDown && !rightDown && time - lastStride > 40) {
+        if (leftDown && !rightDown && time - lastStride > 60) {
             stride(-1);
             lastStride = time;
         }
-        if (rightDown && !leftDown && time - lastStride > 40) {
+        if (rightDown && !leftDown && time - lastStride > 60) {
             stride(1);
             lastStride = time;
         }
@@ -323,9 +350,13 @@
         }
 
 
-        const displayField = copyField(field);
-        addPiece(displayField, pieces[currentPiece][currentRotation], pieceX, pieceY);
-        renderField(displayField);
+        // const displayField = copyField(field);
+        // addPiece(displayField, pieces[currentPiece][currentRotation], pieceX, pieceY);
+        clearField();
+        renderField(field, '#aaa');
+        const pieceField = Array(200).fill(false);
+        addPiece(pieceField, pieces[currentPiece][currentRotation], pieceX, pieceY);
+        renderField(pieceField, '#f00');
     }
 
     function animationFrame() {
@@ -335,13 +366,11 @@
 
     animationFrame();
     pickPiece();
-    renderField(field);
 
 
     window.addEventListener('keydown', event => {
         if (event.key === 'ArrowLeft') {
             leftDown = true;
-            console.log('left down');
         }
         if (event.key === 'ArrowRight') {
             rightDown = true;
