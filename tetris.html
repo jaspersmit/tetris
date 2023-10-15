@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tetris</title>
+</head>
+<body>
+
+<style>
+    #field {
+        font-family: monospace;
+        white-space: pre;
+    }
+</style>
+
+<div id="field">
+
+</div>
+
+<script>
+    function parsePiece(str) {
+        const piece = [];
+        let index = 0;
+        for (let i = 0; i < str.length; i++) {
+            if (str[i] === '.')
+                piece[index++] = false;
+            if (str[i] === 'X')
+                piece[index++] = true;
+        }
+        return piece;
+    }
+
+    const pieces = [
+        [
+            parsePiece(`
+            .X..
+            .X..
+            .X..
+            .X..
+            `),
+            parsePiece(`
+            ....
+            ....
+            XXXX
+            ....
+            `)
+        ],
+        [
+            parsePiece(`
+            ....
+            XXX.
+            ..X.
+            ....
+            `),
+            parsePiece(`
+            .X..
+            .X..
+            XX..
+            ....
+            `),
+            parsePiece(`
+            X...
+            XXX.
+            ....
+            ....
+            `),
+            parsePiece(`
+            .XX.
+            .X..
+            .X..
+            ....
+            `)
+        ],
+        [
+            parsePiece(`
+            XXX.
+            X...
+            ....
+            ....
+            `),
+            parsePiece(`
+            XX..
+            .X..
+            .X..
+            ....
+            `),
+            parsePiece(`
+            ..X.
+            XXX.
+            ....
+            ....
+            `),
+            parsePiece(`
+            .X..
+            .X..
+            .XX.
+            ....
+            `)
+        ],
+        [
+            parsePiece(`
+            .XX.
+            XX..
+            ....
+            ....
+            `),
+            parsePiece(`
+            X...
+            XX..
+            .X..
+            ....
+            `)
+        ],
+        [
+            parsePiece(`
+            ....
+            XXX.
+            .X..
+            ....
+            `),
+            parsePiece(`
+            .X..
+            XX..
+            .X..
+            ....
+            `),
+            parsePiece(`
+            .X..
+            XXX.
+            ....
+            ....
+            `),
+            parsePiece(`
+            .X..
+            .XX.
+            .X..
+            ....
+            `)
+        ],
+        [
+            parsePiece(`
+            ....
+            XX..
+            .XX.
+            ....
+            `),
+            parsePiece(`
+            .X..
+            XX..
+            X...
+            ....
+            `)
+        ],
+        [
+            parsePiece(`
+            XX..
+            XX..
+            ....
+            ....
+        `)
+        ]
+    ];
+
+    const field = [];
+    for (let i = 0; i < 200; i++) {
+        field[i] = false;
+    }
+
+    function renderField(field) {
+        const div = document.getElementById('field');
+        let str = ' ';
+        for (let i = 0; i < 200; i++) {
+            if (i % 10 === 0) str += '\n';
+            if (field[i]) {
+                str += 'X';
+            } else {
+                str += '.';
+            }
+        }
+        div.innerText = str;
+    }
+
+
+    let prevFrame = 0;
+    let pieceX = 3;
+    let pieceY = 0;
+    let currentPiece = 2;
+    let currentRotation = 0;
+    let leftDown = false;
+    let rightDown = false;
+    let upDown = false;
+    let downDown = false;
+    let lastStride = 0;
+    let lastRotate = 0;
+
+    function copyField(field) {
+        const copy = Array(200).fill(false);
+        for (let i = 0; i < 200; i++) {
+            copy[i] = field[i];
+        }
+        return copy;
+    }
+
+    function addPiece(field, piece, x, y) {
+        for (let dy = 0; dy < 4; dy++) {
+            for (let dx = 0; dx < 4; dx++) {
+                if (piece[dy * 4 + dx]) {
+                    field[(dy + y) * 10 + (dx + x)] = true;
+                }
+            }
+        }
+    }
+
+    function pickPiece() {
+        currentPiece = Math.floor(Math.random() * 7);
+        currentRotation = Math.floor(Math.random() * pieces[currentPiece].length);
+    }
+
+    function hit() {
+        const piece = pieces[currentPiece][currentRotation];
+        for (let dy = 0; dy < 4; dy++) {
+            for (let dx = 0; dx < 4; dx++) {
+                if (piece[dy * 4 + dx]) {
+                    const x = pieceX + dx;
+                    const y = pieceY + dy;
+                    if (y >= 20) return true;
+                    if (field[y * 10 + x]) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    function burnLines() {
+        for (let y = 0; y < 20; y++) {
+            let x;
+            for (x = 0; x < 10; x++) {
+                if (!field[y * 10 + x]) break;
+            }
+            if (x === 10) {
+                for (let ty = y; ty >= 1; ty--) {
+                    for (let tx = 0; tx < 10; tx++) {
+                        field[ty * 10 + tx] = field[(ty - 1) * 10 + tx];
+                    }
+                }
+            }
+
+        }
+    }
+
+    function stride(delta) {
+        pieceX += delta;
+        const piece = pieces[currentPiece][currentRotation];
+        let valid = true;
+        for (let dy = 0; dy < 4; dy++) {
+            for (let dx = 0; dx < 4; dx++) {
+                if (piece[dy * 4 + dx]) {
+                    const x = pieceX + dx;
+                    const y = pieceY + dy;
+                    if (x < 0 || x >= 10)
+                        valid = false;
+                    if (field[y * 10 + x])
+                        valid = false;
+                }
+            }
+        }
+        if (!valid) {
+            pieceX -= delta;
+        }
+    }
+
+    function rotate() {
+        currentRotation = (currentRotation + 1) % pieces[currentPiece].length;
+        const piece = pieces[currentPiece][currentRotation];
+        let valid = true;
+        for (let dy = 0; dy < 4; dy++) {
+            for (let dx = 0; dx < 4; dx++) {
+                if (piece[dy * 4 + dx]) {
+                    const x = pieceX + dx;
+                    const y = pieceY + dy;
+                    if (x < 0 || x >= 10)
+                        valid = false;
+                    if (field[y * 10 + x])
+                        valid = false;
+                }
+            }
+        }
+        if (!valid) {
+            currentRotation = (currentRotation + pieces[currentPiece].length - 1) % pieces[currentPiece].length;
+        }
+    }
+
+    function tick() {
+        const time = (new Date()).getTime();
+        if (time - prevFrame > (downDown ? 50 : 200)) {
+            pieceY++;
+            if (hit()) {
+                pieceY--;
+                addPiece(field, pieces[currentPiece][currentRotation], pieceX, pieceY);
+                pieceX = 3;
+                pieceY = 0;
+                burnLines();
+                pickPiece();
+            }
+
+            prevFrame = time;
+        }
+
+        if (leftDown && !rightDown && time - lastStride > 40) {
+            stride(-1);
+            lastStride = time;
+        }
+        if (rightDown && !leftDown && time - lastStride > 40) {
+            stride(1);
+            lastStride = time;
+        }
+        if (upDown && time - lastRotate > 40) {
+            rotate();
+            upDown = false;
+            lastRotate = time;
+        }
+
+
+        const displayField = copyField(field);
+        addPiece(displayField, pieces[currentPiece][currentRotation], pieceX, pieceY);
+        renderField(displayField);
+    }
+
+    function animationFrame() {
+        tick();
+        window.requestAnimationFrame(animationFrame);
+    }
+
+    animationFrame();
+    pickPiece();
+    renderField(field);
+
+
+    window.addEventListener('keydown', event => {
+        if (event.key === 'ArrowLeft') {
+            leftDown = true;
+            console.log('left down');
+        }
+        if (event.key === 'ArrowRight') {
+            rightDown = true;
+        }
+        if (event.key === 'ArrowUp') {
+            upDown = true;
+        }
+        if (event.key === 'ArrowDown') {
+            downDown = true;
+        }
+    });
+    window.addEventListener('keyup', event => {
+        if (event.key === 'ArrowLeft') {
+            leftDown = false;
+        }
+        if (event.key === 'ArrowRight') {
+            rightDown = false;
+        }
+        if (event.key === 'ArrowUp') {
+            upDown = false;
+        }
+        if (event.key === 'ArrowDown') {
+            downDown = false;
+        }
+    });
+
+</script>
+
+
+</body>
+</html>
