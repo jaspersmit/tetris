@@ -11,11 +11,13 @@
         background-color: #042502;
         color: #aaa;
     }
+
     .box {
         display: flex;
         align-items: center;
         justify-content: center;
     }
+
     #canvas {
         border: 20px solid grey;;
     }
@@ -27,9 +29,9 @@
 </style>
 
 <div class="box">
-<canvas id="canvas" width="300" height="600">
+    <canvas id="canvas" width="460" height="600">
 
-</canvas>
+    </canvas>
 </div>
 <div id="score-container">
     Your score:
@@ -190,47 +192,156 @@
 
     const canvas = document.getElementById('canvas');
 
-    function clearField() {
-        const context = canvas.getContext('2d');
+    const TILE_WIDTH = 30;
+    const TILE_HEIGHT = 30;
+    const TILE_INNER_WIDTH = 26;
+    const TILE_INNER_HEIGHT = 26;
+
+    const BURN_ANIMATION_BLINK_TIME = 200;
+    const BURN_ANIMATION_DURATION = 600;
+    const GAME_OVER_ANIMATION_DURATION = 900;
+
+    const FIRST_STRIDE_DELAY = 180;
+    const OTHER_STRIDE_DELAY = 60;
+
+    const music = new Audio();
+    music.src = 'music.m4a';
+    music.loop = true;
+    setTimeout(() => music.play(), 4000);
+
+    const thudSound = new Audio();
+    thudSound.src = 'thud.wav';
+    const linesSound = new Audio();
+    linesSound.src = 'lines.wav';
+    const gameOverSound = new Audio();
+    gameOverSound.src = 'game_over.wav';
+
+    let state = 'NORMAL';
+    let gravity = 250;
+    let prevFrame = 0;
+    let pieceX = 3;
+    let pieceY = 0;
+    let startY = 0;
+    let currentPiece = 2;
+    let currentRotation = 0;
+    let nextPiece = 0;
+    let nextRotation = 0;
+    let leftDown = false;
+    let rightDown = false;
+    let upDown = false;
+    let downDown = false;
+    let strideStep = 0;
+    let lastStride = 0;
+    let lastRotate = 0;
+    let score = 0;
+    let burnAnimationStartTime = 0;
+    let burnLinesY = [];
+    let gameOverAnimationStartTime = 0;
+
+
+    function clearField(context) {
+        context.fillStyle = '#808080';
+        context.fillRect(0, 0, 460, 800);
         context.fillStyle = '#020b25';
-        context.fillRect(0, 0, 400, 800);
+        context.fillRect(0, 0, 300, 800);
     }
 
-    function renderField(field, color) {
-        const context = canvas.getContext('2d');
-        let width = 30;
-        let height = 30;
-        let innerWidth = 26;
-        let innerHeight = 26;
+    function renderNextPiece(context) {
+        const renderX = 320;
+        const renderY = 0;
+        context.fillStyle = '#020b25';
+        context.fillRect(renderX, 0, renderX + 120, 120);
 
+        context.fillStyle = 'red';
+        const piece = pieces[nextPiece][nextRotation];
+        let i = 0;
+        for (let y = 0; y < 4; y++) {
+            for (let x = 0; x < 4; x++) {
+                if (piece[i])
+                    context.fillRect(
+                        x * TILE_WIDTH + (TILE_WIDTH - TILE_INNER_WIDTH) / 2 + renderX,
+                        y * TILE_HEIGHT + (TILE_HEIGHT - TILE_INNER_HEIGHT) / 2 + renderY,
+                        TILE_INNER_WIDTH,
+                        TILE_INNER_HEIGHT);
+                i++;
+            }
+        }
+
+    }
+
+    function renderField(context, field, color) {
         context.fillStyle = color;
         for (let i = 0; i < 200; i++) {
             const y = Math.floor(i / 10);
             const x = i % 10;
             if (field[i])
                 context.fillRect(
-                    x * width + (width - innerWidth) / 2,
-                    y * height + (height - innerHeight) / 2,
-                    innerWidth,
-                    innerHeight);
+                    x * TILE_WIDTH + (TILE_WIDTH - TILE_INNER_WIDTH) / 2,
+                    y * TILE_HEIGHT + (TILE_HEIGHT - TILE_INNER_HEIGHT) / 2,
+                    TILE_INNER_WIDTH,
+                    TILE_INNER_HEIGHT);
 
+        }
+    }
+
+    function renderBurnAnimation(context) {
+        const time = (new Date()).getTime();
+        for (let y of burnLinesY) {
+            for (let x = 0; x < 10; x++) {
+                context.fillStyle = (time % BURN_ANIMATION_BLINK_TIME) < BURN_ANIMATION_BLINK_TIME / 2
+                    ? '#aaa' : 'white';
+
+                context.fillRect(
+                    x * TILE_WIDTH + (TILE_WIDTH - TILE_INNER_WIDTH) / 2,
+                    y * TILE_HEIGHT + (TILE_HEIGHT - TILE_INNER_HEIGHT) / 2,
+                    TILE_INNER_WIDTH,
+                    TILE_INNER_HEIGHT);
+            }
+        }
+    }
+
+    function renderGameOverAnimation(context) {
+        const time = (new Date()).getTime();
+        let step = (time - gameOverAnimationStartTime) / 40;
+        if (step >= 40) return;
+        if (step >= 20) {
+            for (let i = 0; i < 200; i++) {
+                field[i] = false;
+            }
+        }
+        let targetY = step < 20 ? step : 20 - (step - 20);
+
+        for (let y = 19; y >= 20 - targetY; y--) {
+            for (let x = 0; x < 10; x++) {
+                context.fillStyle = '#aaa';
+                context.fillRect(
+                    x * TILE_WIDTH + (TILE_WIDTH - TILE_INNER_WIDTH) / 2,
+                    y * TILE_HEIGHT + (TILE_HEIGHT - TILE_INNER_HEIGHT) / 2,
+                    TILE_INNER_WIDTH,
+                    TILE_INNER_HEIGHT);
+            }
         }
 
     }
 
-
-    let prevFrame = 0;
-    let pieceX = 3;
-    let pieceY = 0;
-    let currentPiece = 2;
-    let currentRotation = 0;
-    let leftDown = false;
-    let rightDown = false;
-    let upDown = false;
-    let downDown = false;
-    let lastStride = 0;
-    let lastRotate = 0;
-    let score = 0;
+    function render() {
+        const context = canvas.getContext('2d');
+        const time = (new Date()).getTime();
+        clearField(context);
+        renderField(context, field, '#aaa');
+        const pieceField = Array(200).fill(false);
+        addPiece(pieceField, pieces[currentPiece][currentRotation], pieceX, pieceY);
+        if (state === 'NORMAL') {
+            renderField(context, pieceField, '#f00');
+        }
+        renderNextPiece(context);
+        if (state === 'BURN') {
+            renderBurnAnimation(context);
+        }
+        if (state === 'GAME_OVER') {
+            renderGameOverAnimation(context);
+        }
+    }
 
     function copyField(field) {
         const copy = Array(200).fill(false);
@@ -251,8 +362,9 @@
     }
 
     function pickPiece() {
-        currentPiece = Math.floor(Math.random() * 7);
-        currentRotation = Math.floor(Math.random() * pieces[currentPiece].length);
+        const piece = Math.floor(Math.random() * 7);
+        const rotation = Math.floor(Math.random() * pieces[piece].length);
+        return [piece, rotation];
     }
 
     function hit() {
@@ -276,23 +388,23 @@
 
     function burnLines() {
         let lines = 0;
+        burnLinesY = [];
         for (let y = 0; y < 20; y++) {
             let x;
             for (x = 0; x < 10; x++) {
                 if (!field[y * 10 + x]) break;
             }
             if (x === 10) {
+                burnLinesY.push(y);
                 lines++;
-                for (let ty = y; ty >= 1; ty--) {
-                    for (let tx = 0; tx < 10; tx++) {
-                        field[ty * 10 + tx] = field[(ty - 1) * 10 + tx];
-                    }
-                }
             }
         }
         score += [0, 40, 100, 300, 1200][lines];
         scoreSpan.innerText = score;
-
+        if (lines > 0) {
+            burnAnimationStartTime = (new Date()).getTime();
+            state = 'BURN';
+        }
     }
 
     function stride(delta) {
@@ -337,40 +449,76 @@
         }
     }
 
-    function tick() {
-        const time = (new Date()).getTime();
-        if (time - prevFrame > (downDown ? 50 : 200)) {
+    function normalTick(time) {
+        if (time - prevFrame > (downDown ? gravity / 4 : gravity)) {
             pieceY++;
             if (hit()) {
                 pieceY--;
                 addPiece(field, pieces[currentPiece][currentRotation], pieceX, pieceY);
-                pieceX = 3;
-                pieceY = 0;
+
                 burnLines();
-                pickPiece();
+                [currentPiece, currentRotation] = [nextPiece, nextRotation];
+                [nextPiece, nextRotation] = pickPiece();
+                if (burnLinesY.length === 0 && pieceY === startY) {
+                    state = 'GAME_OVER';
+                    music.pause();
+                    gameOverAnimationStartTime = time;
+                    gameOverSound.play();
+                } else {
+                    pieceX = 3;
+                    pieceY = 0;
+                    startY = pieceY;
+                    if (burnLinesY.length > 0)
+                        linesSound.play();
+                    else
+                        thudSound.play();
+
+                }
+                lastStride = 0;
+
             }
             prevFrame = time;
         }
 
-        if (leftDown && !rightDown && time - lastStride > 60) {
+        let strideDelay = (strideStep >= 2) ? OTHER_STRIDE_DELAY : FIRST_STRIDE_DELAY;
+        if (leftDown && !rightDown && time - lastStride > strideDelay) {
             stride(-1);
+            strideStep++;
             lastStride = time;
         }
-        if (rightDown && !leftDown && time - lastStride > 60) {
+        if (rightDown && !leftDown && time - lastStride > strideDelay) {
             stride(1);
+            strideStep++;
             lastStride = time;
         }
-        if (upDown && time - lastRotate > 40) {
+        if (upDown) {
             rotate();
             upDown = false;
             lastRotate = time;
         }
+    }
 
-        clearField();
-        renderField(field, '#aaa');
-        const pieceField = Array(200).fill(false);
-        addPiece(pieceField, pieces[currentPiece][currentRotation], pieceX, pieceY);
-        renderField(pieceField, '#f00');
+    function burnTick(time) {
+        if (time - burnAnimationStartTime > BURN_ANIMATION_DURATION) {
+            for (const y of burnLinesY) {
+                for (let ty = y; ty >= 1; ty--) {
+                    for (let tx = 0; tx < 10; tx++) {
+                        field[ty * 10 + tx] = field[(ty - 1) * 10 + tx];
+                    }
+                }
+            }
+            state = 'NORMAL';
+        }
+    }
+
+    function tick() {
+        const time = (new Date()).getTime();
+        if (state === 'NORMAL') {
+            normalTick(time);
+        } else if (state === 'BURN') {
+            burnTick(time);
+        }
+        render(time);
     }
 
     function animationFrame() {
@@ -379,7 +527,7 @@
     }
 
     animationFrame();
-    pickPiece();
+    [currentPiece, currentRotation] = pickPiece();
 
 
     window.addEventListener('keydown', event => {
@@ -399,9 +547,13 @@
     window.addEventListener('keyup', event => {
         if (event.key === 'ArrowLeft') {
             leftDown = false;
+            strideStep = 0;
+            lastStride = 0;
         }
         if (event.key === 'ArrowRight') {
             rightDown = false;
+            strideStep = 0;
+            lastStride = 0;
         }
         if (event.key === 'ArrowUp') {
             upDown = false;
