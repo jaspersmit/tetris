@@ -237,6 +237,10 @@
     let burnAnimationStartTime = 0;
     let burnLinesY = [];
     let gameOverAnimationStartTime = 0;
+    let computerPlay = true;
+    let computerTargetX = 0;
+    let computerTargetRotation = 0;
+    let lastComputerAction = 0;
 
 
     function clearField(context) {
@@ -449,13 +453,154 @@
         }
     }
 
+    function fieldToString(field) {
+        let str = '';
+        for (let i = 0; i < 200; i++) {
+            str += field[i] ? 'X' : '.';
+            if (i % 10 === 9) str += '\n';
+        }
+        return str;
+    }
+
+    const heightScores = [
+        0,
+        0,
+        0,
+        0,
+        0.3,
+        0.7,
+        1.2,
+        2,
+        3,
+        4,
+        6,
+        9,
+        12,
+        15,
+        19,
+        24,
+        30,
+        16,
+        42,
+        50];
+
+    function evaluateField(field) {
+        let minY = 20;
+        let i = 0;
+        for (let y = 0; y < 20; y++) {
+            for (let x = 0; x < 10; x++) {
+                if (field[i]) {
+                    if (y < minY) minY = y;
+                }
+                i++;
+            }
+        }
+
+        let holes = 0;
+        for (let x = 0; x < 10; x++) {
+            let run = 0;
+            for (let y = 19; y >= 0; y--) {
+                if (field[y * 10 + x]) {
+                    holes += run;
+                    run = 0;
+                } else {
+                    run++;
+                }
+
+            }
+        }
+
+        const burnLines = [];
+        for (let y = 0; y < 20; y++) {
+            let x;
+            for (x = 0; x < 10; x++) {
+                if (!field[y * 10 + x]) break;
+            }
+            if (x === 10) {
+                burnLines.push(y);
+            }
+        }
+        for (const y of burnLines) {
+            for (let ty = y; ty >= 1; ty--) {
+                for (let tx = 0; tx < 10; tx++) {
+                    field[ty * 10 + tx] = field[(ty - 1) * 10 + tx];
+                }
+            }
+        }
+
+
+        let height = 19 - minY;
+        let score = -holes - heightScores[height];
+
+        return score;
+    }
+
+    function evaluateMove(x, rotation) {
+        const piece = pieces[currentPiece][rotation];
+
+        let i = 0;
+        for (let dy = 0; dy < 4; dy++) {
+            for (let dx = 0; dx < 4; dx++) {
+                if (piece[i] && ((dx + x) >= 10 || (dx + x) < 0)) {
+                    return -100;
+                }
+                i++;
+            }
+        }
+
+        let y;
+        brk: for (y = 0; y < 20; y++) {
+            let i = 0;
+            for (let dy = 0; dy < 4; dy++) {
+                for (let dx = 0; dx < 4; dx++) {
+                    if (piece[i]) {
+                        if (field[(y + dy) * 10 + x + dx] || y + dy >= 20) {
+                            break brk;
+                        }
+                    }
+                    i++;
+                }
+            }
+        }
+
+        y--;
+
+        console.log(`Adding piece ${x}, ${y}`);
+
+        const futureField = copyField(field);
+        addPiece(futureField, piece, x, y);
+
+        const ev = evaluateField(futureField);
+        console.log(fieldToString(futureField));
+        console.log(ev);
+        return ev;
+
+
+        // return Math.random();
+    }
+
+
+    function computerThink() {
+        let maxEvaluation = -10000;
+        for (let x = -1; x < 9; x++) {
+            for (let rotation = 0; rotation < pieces[currentPiece].length; rotation++) {
+                const evaluation = evaluateMove(x, rotation);
+                if (evaluation > maxEvaluation) {
+                    computerTargetX = x;
+                    computerTargetRotation = rotation;
+                    maxEvaluation = evaluation;
+                }
+            }
+        }
+        console.log(`target x ${computerTargetX}, ${computerTargetRotation} `)
+    }
+
     function normalTick(time) {
         if (time - prevFrame > (downDown ? gravity / 4 : gravity)) {
             pieceY++;
             if (hit()) {
                 pieceY--;
                 addPiece(field, pieces[currentPiece][currentRotation], pieceX, pieceY);
-
                 burnLines();
                 [currentPiece, currentRotation] = [nextPiece, nextRotation];
                 [nextPiece, nextRotation] = pickPiece();
@@ -468,6 +613,7 @@
                     pieceX = 3;
                     pieceY = 0;
                     startY = pieceY;
+                    computerThink();
                     if (burnLinesY.length > 0)
                         linesSound.play();
                     else
@@ -478,6 +624,17 @@
 
             }
             prevFrame = time;
+        }
+
+        if (computerPlay && time - lastComputerAction > 250) {
+            if (currentRotation !== computerTargetRotation) {
+                rotate();
+            } else if (pieceX > computerTargetX) {
+                stride(-1);
+            } else if (pieceX < computerTargetX) {
+                stride(1);
+            }
+            lastComputerAction = time;
         }
 
         let strideDelay = (strideStep >= 2) ? OTHER_STRIDE_DELAY : FIRST_STRIDE_DELAY;
