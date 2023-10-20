@@ -391,18 +391,8 @@
     const scoreSpan = document.getElementById('score');
 
     function burnLines() {
-        let lines = 0;
-        burnLinesY = [];
-        for (let y = 0; y < 20; y++) {
-            let x;
-            for (x = 0; x < 10; x++) {
-                if (!field[y * 10 + x]) break;
-            }
-            if (x === 10) {
-                burnLinesY.push(y);
-                lines++;
-            }
-        }
+        burnLinesY = findLines(field);
+        const lines = burnLinesY.length;
         score += [0, 40, 100, 300, 1200][lines];
         scoreSpan.innerText = score;
         if (lines > 0) {
@@ -453,6 +443,31 @@
         }
     }
 
+
+    function findLines(field) {
+        const lines = [];
+        for (let y = 0; y < 20; y++) {
+            let x;
+            for (x = 0; x < 10; x++) {
+                if (!field[y * 10 + x]) break;
+            }
+            if (x === 10) {
+                lines.push(y);
+            }
+        }
+        return lines;
+    }
+
+    function burnAndShift(field, lines) {
+        for (const y of lines) {
+            for (let ty = y; ty >= 1; ty--) {
+                for (let tx = 0; tx < 10; tx++) {
+                    field[ty * 10 + tx] = field[(ty - 1) * 10 + tx];
+                }
+            }
+        }
+    }
+
     function fieldToString(field) {
         let str = '';
         for (let i = 0; i < 200; i++) {
@@ -485,6 +500,9 @@
         50];
 
     function evaluateField(field) {
+        const burnLines = findLines(field);
+        burnAndShift(field, burnLines);
+
         let minY = 20;
         let i = 0;
         for (let y = 0; y < 20; y++) {
@@ -509,25 +527,6 @@
 
             }
         }
-
-        const burnLines = [];
-        for (let y = 0; y < 20; y++) {
-            let x;
-            for (x = 0; x < 10; x++) {
-                if (!field[y * 10 + x]) break;
-            }
-            if (x === 10) {
-                burnLines.push(y);
-            }
-        }
-        for (const y of burnLines) {
-            for (let ty = y; ty >= 1; ty--) {
-                for (let tx = 0; tx < 10; tx++) {
-                    field[ty * 10 + tx] = field[(ty - 1) * 10 + tx];
-                }
-            }
-        }
-
 
         let height = 19 - minY;
         let score = -holes - heightScores[height];
@@ -657,13 +656,7 @@
 
     function burnTick(time) {
         if (time - burnAnimationStartTime > BURN_ANIMATION_DURATION) {
-            for (const y of burnLinesY) {
-                for (let ty = y; ty >= 1; ty--) {
-                    for (let tx = 0; tx < 10; tx++) {
-                        field[ty * 10 + tx] = field[(ty - 1) * 10 + tx];
-                    }
-                }
-            }
+            burnAndShift(field, burnLinesY);
             state = 'NORMAL';
         }
     }
