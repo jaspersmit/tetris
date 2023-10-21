@@ -203,6 +203,7 @@
 
     const FIRST_STRIDE_DELAY = 180;
     const OTHER_STRIDE_DELAY = 60;
+    const COMPUTER_REACTION_TIME = 90;
 
     const music = new Audio();
     music.src = 'music.m4a';
@@ -217,7 +218,7 @@
     gameOverSound.src = 'game_over.wav';
 
     let state = 'NORMAL';
-    let gravity = 250;
+    let gravity = 90;
     let prevFrame = 0;
     let pieceX = 3;
     let pieceY = 0;
@@ -477,38 +478,38 @@
         return str;
     }
 
-    const heightScores = [
+    const heightScore = [
         0,
         0,
         0,
         0,
-        0.3,
-        0.7,
-        1.2,
-        2,
-        3,
-        4,
-        6,
         9,
+        10,
+        11,
         12,
+        13,
+        14,
         15,
-        19,
-        24,
-        30,
-        16,
-        42,
-        50];
+        18,
+        22,
+        27,
+        33,
+        40,
+        48,
+        57,
+        67,
+        80];
 
     function evaluateField(field) {
         const burnLines = findLines(field);
         burnAndShift(field, burnLines);
 
-        let minY = 20;
+        let heightUsed = 0;
         let i = 0;
-        for (let y = 0; y < 20; y++) {
+        for (let y = 0; y < 16; y++) {
             for (let x = 0; x < 10; x++) {
                 if (field[i]) {
-                    if (y < minY) minY = y;
+                    heightUsed += heightScore[19 - y];
                 }
                 i++;
             }
@@ -528,20 +529,18 @@
             }
         }
 
-        let height = 19 - minY;
-        let score = -holes - heightScores[height];
+        // let height = 19 - minY;
+        // let score = -holes - heightScores[height];
 
-        return score;
+        return -heightUsed - holes * 35;
     }
 
-    function evaluateMove(x, rotation) {
-        const piece = pieces[currentPiece][rotation];
-
+    function dropPiece(field, piece, x) {
         let i = 0;
         for (let dy = 0; dy < 4; dy++) {
             for (let dx = 0; dx < 4; dx++) {
                 if (piece[i] && ((dx + x) >= 10 || (dx + x) < 0)) {
-                    return -100;
+                    return -1;
                 }
                 i++;
             }
@@ -563,6 +562,22 @@
         }
 
         y--;
+        return y;
+    }
+
+    function evaluateNextMove(field) {
+        for (let x = -1; x < 9; x++) {
+            for (let rotation = 0; rotation < pieces[currentPiece].length; rotation++) {
+                const evaluation = evaluateMove(x, rotation);
+            }
+        }
+    }
+
+    function evaluateMove(field, x, rotation) {
+        const piece = pieces[currentPiece][rotation];
+
+        const y = dropPiece(field, piece, x);
+        if (y < 0) return -1000000;
 
         console.log(`Adding piece ${x}, ${y}`);
 
@@ -583,7 +598,7 @@
         let maxEvaluation = -10000;
         for (let x = -1; x < 9; x++) {
             for (let rotation = 0; rotation < pieces[currentPiece].length; rotation++) {
-                const evaluation = evaluateMove(x, rotation);
+                const evaluation = evaluateMove(field, x, rotation);
                 if (evaluation > maxEvaluation) {
                     computerTargetX = x;
                     computerTargetRotation = rotation;
@@ -625,7 +640,7 @@
             prevFrame = time;
         }
 
-        if (computerPlay && time - lastComputerAction > 250) {
+        if (computerPlay && time - lastComputerAction > COMPUTER_REACTION_TIME) {
             if (currentRotation !== computerTargetRotation) {
                 rotate();
             } else if (pieceX > computerTargetX) {
@@ -678,6 +693,7 @@
 
     animationFrame();
     [currentPiece, currentRotation] = pickPiece();
+    computerThink();
 
 
     window.addEventListener('keydown', event => {
