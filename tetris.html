@@ -444,7 +444,6 @@
         }
     }
 
-
     function findLines(field) {
         const lines = [];
         for (let y = 0; y < 20; y++) {
@@ -487,18 +486,18 @@
         10,
         11,
         12,
-        13,
         14,
-        15,
-        18,
-        22,
-        27,
+        17,
+        21,
+        26,
         33,
-        40,
-        48,
-        57,
-        67,
-        80];
+        41,
+        50,
+        60,
+        70,
+        80,
+        90,
+        100];
 
     function evaluateField(field) {
         const burnLines = findLines(field);
@@ -528,9 +527,6 @@
 
             }
         }
-
-        // let height = 19 - minY;
-        // let score = -holes - heightScores[height];
 
         return -heightUsed - holes * 35;
     }
@@ -566,11 +562,22 @@
     }
 
     function evaluateNextMove(field) {
+        let maxEvaluation = -100000;
+
         for (let x = -1; x < 9; x++) {
-            for (let rotation = 0; rotation < pieces[currentPiece].length; rotation++) {
-                const evaluation = evaluateMove(x, rotation);
+            for (let rotation = 0; rotation < pieces[nextPiece].length; rotation++) {
+                const piece = pieces[nextPiece][rotation];
+                const y = dropPiece(field, piece, x);
+                if (y < 0) continue;
+
+                const futureField = copyField(field);
+                addPiece(futureField, piece, x, y);
+
+                const evaluation = evaluateField(futureField);
+                if(evaluation > maxEvaluation) maxEvaluation = evaluation;
             }
         }
+        return maxEvaluation;
     }
 
     function evaluateMove(field, x, rotation) {
@@ -584,7 +591,7 @@
         const futureField = copyField(field);
         addPiece(futureField, piece, x, y);
 
-        const ev = evaluateField(futureField);
+        const ev = evaluateNextMove(futureField);
         console.log(fieldToString(futureField));
         console.log(ev);
         return ev;
