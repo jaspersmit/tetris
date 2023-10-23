@@ -37,7 +37,8 @@
     Your score:
     <span id="score">
         0
-    </span>
+    </span>.
+    Press <b>C</b> to enable computer play. Press <b>M</b> to toggle music.
 
 </div>
 
@@ -208,7 +209,6 @@
     const music = new Audio();
     music.src = 'music.m4a';
     music.loop = true;
-    setTimeout(() => music.play(), 4000);
 
     const thudSound = new Audio();
     thudSound.src = 'thud.wav';
@@ -218,7 +218,7 @@
     gameOverSound.src = 'game_over.wav';
 
     let state = 'NORMAL';
-    let gravity = 90;
+    let gravity = 250;
     let prevFrame = 0;
     let pieceX = 3;
     let pieceY = 0;
@@ -238,7 +238,7 @@
     let burnAnimationStartTime = 0;
     let burnLinesY = [];
     let gameOverAnimationStartTime = 0;
-    let computerPlay = true;
+    let computerPlay = false;
     let computerTargetX = 0;
     let computerTargetRotation = 0;
     let lastComputerAction = 0;
@@ -626,6 +626,7 @@
 
 
     function computerThink() {
+        if(!computerPlay) return;
         let maxEvaluation = -10000;
         for (let x = -1; x < 9; x++) {
             for (let rotation = 0; rotation < pieces[currentPiece].length; rotation++) {
@@ -658,13 +659,15 @@
                     pieceX = 3;
                     pieceY = 0;
                     startY = pieceY;
-                    computerThink();
                     if (burnLinesY.length > 0)
                         linesSound.play();
                     else
                         thudSound.play();
-
                 }
+                if(state === 'NORMAL') {
+                    computerThink();
+                }
+
                 lastStride = 0;
 
             }
@@ -703,6 +706,7 @@
     function burnTick(time) {
         if (time - burnAnimationStartTime > BURN_ANIMATION_DURATION) {
             burnAndShift(field, burnLinesY);
+            computerThink();
             state = 'NORMAL';
         }
     }
@@ -758,6 +762,14 @@
         if (event.key === 'ArrowDown') {
             downDown = false;
         }
+        if (event.key === 'c') {
+            computerPlay = !computerPlay;
+            gravity = computerPlay ? 90 : 250;
+        }
+        if (event.key === 'm') {
+            if(music.paused) music.play(); else music.pause();
+        }
+
     });
 
 </script>
