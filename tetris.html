@@ -561,6 +561,30 @@
         return y;
     }
 
+
+    function evaluateWorstCase(field) {
+        let minEvaluation = 100000;
+
+        for(let pieceType = 0; pieceType < pieces.length; pieceType++) {
+            let maxEvaluation = -100000;
+            for(let rotation = 0; rotation < pieces[pieceType].length; rotation++) {
+                const piece = pieces[pieceType][rotation];
+
+                for (let x = -1; x < 9; x++) {
+                    const y = dropPiece(field, piece, x);
+                    if (y < 0) continue;
+                    const futureField = copyField(field);
+                    addPiece(futureField, piece, x, y);
+
+                    const evaluation = evaluateField(futureField);
+                    if(evaluation > maxEvaluation) maxEvaluation = evaluation;
+                }
+            }
+            if(maxEvaluation < minEvaluation) minEvaluation = maxEvaluation;
+        }
+        return minEvaluation;
+    }
+
     function evaluateNextMove(field) {
         let maxEvaluation = -100000;
 
@@ -573,7 +597,7 @@
                 const futureField = copyField(field);
                 addPiece(futureField, piece, x, y);
 
-                const evaluation = evaluateField(futureField);
+                const evaluation = evaluateWorstCase(futureField);
                 if(evaluation > maxEvaluation) maxEvaluation = evaluation;
             }
         }
