@@ -204,7 +204,7 @@
 
     const FIRST_STRIDE_DELAY = 180;
     const OTHER_STRIDE_DELAY = 60;
-    const COMPUTER_REACTION_TIME = 90;
+    const COMPUTER_REACTION_TIME = 30;
 
     const music = new Audio();
     music.src = 'music.m4a';
@@ -519,8 +519,10 @@
             let run = 0;
             for (let y = 19; y >= 0; y--) {
                 if (field[y * 10 + x]) {
-                    holes += run;
-                    run = 0;
+                    if(run > 0) {
+                        holes += 45 + 5 * (20 - y);
+                        run = 0;
+                    }
                 } else {
                     run++;
                 }
@@ -528,7 +530,8 @@
             }
         }
 
-        return -heightUsed - holes * 35;
+
+        return -heightUsed - holes;
     }
 
     function dropPiece(field, piece, x) {
@@ -765,6 +768,7 @@
         if (event.key === 'c') {
             computerPlay = !computerPlay;
             gravity = computerPlay ? 90 : 250;
+            if(computerPlay) computerThink();
         }
         if (event.key === 'm') {
             if(music.paused) music.play(); else music.pause();
