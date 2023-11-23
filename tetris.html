@@ -205,6 +205,7 @@
 
     const FIRST_STRIDE_DELAY = 180;
     const OTHER_STRIDE_DELAY = 60;
+    const STRIDE_ANIMATION_DURATION = 60;
     const COMPUTER_REACTION_TIME = 30;
 
     const COLORS = [
@@ -257,6 +258,10 @@
     let downDown = false;
     let strideStep = 0;
     let lastStride = 0;
+    let strideAnimationStart = 0;
+    let strideAnimationEnd = 0;
+    let strideInterpolateStart = 0;
+    let strideInterpolateEnd = 0;
     let lastRotate = 0;
     let score = 0;
     let burnAnimationStartTime = 0;
@@ -298,7 +303,7 @@
         }
     }
 
-    function renderField(context, field, matted) {
+    function renderField(context, field, matted, shiftX, shiftY) {
         for (let i = 0; i < 200; i++) {
             const y = Math.floor(i / 10);
             const x = i % 10;
@@ -306,8 +311,8 @@
             if (piece > 0) {
                 context.fillStyle = matted ? MATTED_COLORS[piece] : COLORS[piece];
                 context.fillRect(
-                    x * TILE_WIDTH + (TILE_WIDTH - TILE_INNER_WIDTH) / 2,
-                    y * TILE_HEIGHT + (TILE_HEIGHT - TILE_INNER_HEIGHT) / 2,
+                    x * TILE_WIDTH + (TILE_WIDTH - TILE_INNER_WIDTH) / 2 + shiftX,
+                    y * TILE_HEIGHT + (TILE_HEIGHT - TILE_INNER_HEIGHT) / 2 + shiftY,
                     TILE_INNER_WIDTH,
                     TILE_INNER_HEIGHT);
             }
@@ -358,11 +363,20 @@
     function render() {
         const context = canvas.getContext('2d');
         clearField(context);
-        renderField(context, field, true);
+        renderField(context, field, true, 0, 0);
         const pieceField = Array(200).fill(0);
         addPiece(pieceField, pieces[currentPiece][currentRotation], pieceX, pieceY);
         if (state === 'NORMAL') {
-            renderField(context, pieceField, false);
+            const time = (new Date()).getTime();
+            const ty = (time - prevFrame) / (downDown ? gravity / 4 : gravity) - 1;
+            const shiftY = Math.floor(ty * TILE_HEIGHT);
+            let shiftX = 0;
+            if (time < strideAnimationEnd) {
+                const tx = (time - strideAnimationStart) / (strideAnimationEnd - strideAnimationStart);
+                const interpolated = (1-tx) * (strideInterpolateEnd - strideInterpolateStart) + strideInterpolateStart;
+                shiftX = Math.floor(-interpolated * TILE_WIDTH);
+            }
+            renderField(context, pieceField, false, shiftX, shiftY);
         }
         renderNextPiece(context);
         if (state === 'BURN') {
@@ -428,7 +442,7 @@
         }
     }
 
-    function stride(delta) {
+    function stride(time, delta) {
         pieceX += delta;
         const piece = pieces[currentPiece][currentRotation];
         let valid = true;
@@ -437,16 +451,23 @@
                 if (piece[dy * 4 + dx]) {
                     const x = pieceX + dx;
                     const y = pieceY + dy;
-                    if (x < 0 || x >= 10)
-                        valid = false;
-                    if (field[y * 10 + x])
+                    if (x < 0 || x >= 10 || field[y * 10 + x])
                         valid = false;
                 }
             }
         }
         if (!valid) {
             pieceX -= delta;
+        } else {
+            if(time >= strideAnimationEnd) {
+                strideAnimationStart = time;
+                strideAnimationEnd = strideAnimationStart + STRIDE_ANIMATION_DURATION;
+                strideInterpolateStart = 0;
+                strideInterpolateEnd = delta;
+            }
         }
+        strideStep++;
+        lastStride = time;
     }
 
     function rotate() {
@@ -544,7 +565,7 @@
             let run = 0;
             for (let y = 19; y >= 0; y--) {
                 if (field[y * 10 + x]) {
-                    if(run > 0) {
+                    if (run > 0) {
                         holes += 45 + 5 * (20 - y);
                         run = 0;
                     }
@@ -588,9 +609,9 @@
 
     function evaluateWorstCase(field) {
         let minEvaluation = 100000;
-        for(let pieceType = 0; pieceType < pieces.length; pieceType++) {
+        for (let pieceType = 0; pieceType < pieces.length; pieceType++) {
             let maxEvaluation = -100000;
-            for(let rotation = 0; rotation < pieces[pieceType].length; rotation++) {
+            for (let rotation = 0; rotation < pieces[pieceType].length; rotation++) {
                 const piece = pieces[pieceType][rotation];
                 for (let x = -1; x < 9; x++) {
                     const y = dropPiece(field, piece, x);
@@ -599,10 +620,10 @@
                     addPiece(futureField, piece, x, y);
 
                     const evaluation = evaluateField(futureField);
-                    if(evaluation > maxEvaluation) maxEvaluation = evaluation;
+                    if (evaluation > maxEvaluation) maxEvaluation = evaluation;
                 }
             }
-            if(maxEvaluation < minEvaluation) minEvaluation = maxEvaluation;
+            if (maxEvaluation < minEvaluation) minEvaluation = maxEvaluation;
         }
         return minEvaluation;
     }
@@ -620,7 +641,7 @@
                 addPiece(futureField, piece, x, y);
 
                 const evaluation = evaluateWorstCase(futureField);
-                if(evaluation > maxEvaluation) maxEvaluation = evaluation;
+                if (evaluation > maxEvaluation) maxEvaluation = evaluation;
             }
         }
         return maxEvaluation;
@@ -632,8 +653,6 @@
         const y = dropPiece(field, piece, x);
         if (y < 0) return -1000000;
 
-        console.log(`Adding piece ${x}, ${y}`);
-
         const futureField = copyField(field);
         addPiece(futureField, piece, x, y);
 
@@ -644,7 +663,7 @@
     }
 
     function computerThink() {
-        if(!computerPlay) return;
+        if (!computerPlay) return;
         let maxEvaluation = -10000;
         for (let x = -1; x < 9; x++) {
             for (let rotation = 0; rotation < pieces[currentPiece].length; rotation++) {
@@ -683,7 +702,7 @@
                     else
                         thudSound.play();
                 }
-                if(state === 'NORMAL') {
+                if (state === 'NORMAL') {
                     computerThink();
                 }
 
@@ -697,23 +716,19 @@
             if (currentRotation !== computerTargetRotation) {
                 rotate();
             } else if (pieceX > computerTargetX) {
-                stride(-1);
+                stride(time, -1);
             } else if (pieceX < computerTargetX) {
-                stride(1);
+                stride(time, 1);
             }
             lastComputerAction = time;
         }
 
         let strideDelay = (strideStep >= 2) ? OTHER_STRIDE_DELAY : FIRST_STRIDE_DELAY;
         if (leftDown && !rightDown && time - lastStride > strideDelay) {
-            stride(-1);
-            strideStep++;
-            lastStride = time;
+            stride(time, -1);
         }
         if (rightDown && !leftDown && time - lastStride > strideDelay) {
-            stride(1);
-            strideStep++;
-            lastStride = time;
+            stride(time, 1);
         }
         if (upDown) {
             rotate();
@@ -784,10 +799,10 @@
         if (event.key === 'c') {
             computerPlay = !computerPlay;
             gravity = computerPlay ? 90 : 250;
-            if(computerPlay) computerThink();
+            if (computerPlay) computerThink();
         }
         if (event.key === 'm') {
-            if(music.paused) music.play(); else music.pause();
+            if (music.paused) music.play(); else music.pause();
         }
 
     });
