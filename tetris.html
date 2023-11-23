@@ -48,9 +48,10 @@
         let index = 0;
         for (let i = 0; i < str.length; i++) {
             if (str[i] === '.')
-                piece[index++] = false;
-            if (str[i] === 'X')
-                piece[index++] = true;
+                piece[index++] = 0;
+            if (str[i] >= '1' && str[i] <= '9') {
+                piece[index++] = (str.charCodeAt(i) - '0'.charCodeAt(0));
+            }
         }
         return piece;
     }
@@ -58,128 +59,128 @@
     const pieces = [
         [
             parsePiece(`
-            .X..
-            .X..
-            .X..
-            .X..
+            .1..
+            .1..
+            .1..
+            .1..
             `),
             parsePiece(`
             ....
             ....
-            XXXX
+            1111
             ....
             `)
         ],
         [
             parsePiece(`
             ....
-            XXX.
-            ..X.
+            222.
+            ..2.
             ....
             `),
             parsePiece(`
-            .X..
-            .X..
-            XX..
+            .2..
+            .2..
+            22..
             ....
             `),
             parsePiece(`
-            X...
-            XXX.
+            2...
+            222.
             ....
             ....
             `),
             parsePiece(`
-            .XX.
-            .X..
-            .X..
+            .22.
+            .2..
+            .2..
             ....
             `)
         ],
         [
             parsePiece(`
-            XXX.
-            X...
+            333.
+            3...
             ....
             ....
             `),
             parsePiece(`
-            XX..
-            .X..
-            .X..
+            33..
+            .3..
+            .3..
             ....
             `),
             parsePiece(`
-            ..X.
-            XXX.
+            ..3.
+            333.
             ....
             ....
             `),
             parsePiece(`
-            .X..
-            .X..
-            .XX.
+            .3..
+            .3..
+            .33.
             ....
             `)
         ],
         [
             parsePiece(`
-            .XX.
-            XX..
+            .44.
+            44..
             ....
             ....
             `),
             parsePiece(`
-            X...
-            XX..
-            .X..
-            ....
-            `)
-        ],
-        [
-            parsePiece(`
-            ....
-            XXX.
-            .X..
-            ....
-            `),
-            parsePiece(`
-            .X..
-            XX..
-            .X..
-            ....
-            `),
-            parsePiece(`
-            .X..
-            XXX.
-            ....
-            ....
-            `),
-            parsePiece(`
-            .X..
-            .XX.
-            .X..
+            4...
+            44..
+            .4..
             ....
             `)
         ],
         [
             parsePiece(`
             ....
-            XX..
-            .XX.
+            555.
+            .5..
             ....
             `),
             parsePiece(`
-            .X..
-            XX..
-            X...
+            .5..
+            55..
+            .5..
+            ....
+            `),
+            parsePiece(`
+            .5..
+            555.
+            ....
+            ....
+            `),
+            parsePiece(`
+            .5..
+            .55.
+            .5..
             ....
             `)
         ],
         [
             parsePiece(`
-            XX..
-            XX..
+            ....
+            66..
+            .66.
+            ....
+            `),
+            parsePiece(`
+            .6..
+            66..
+            6...
+            ....
+            `)
+        ],
+        [
+            parsePiece(`
+            77..
+            77..
             ....
             ....
         `)
@@ -188,7 +189,7 @@
 
     const field = [];
     for (let i = 0; i < 200; i++) {
-        field[i] = false;
+        field[i] = 0;
     }
 
     const canvas = document.getElementById('canvas');
@@ -205,6 +206,29 @@
     const FIRST_STRIDE_DELAY = 180;
     const OTHER_STRIDE_DELAY = 60;
     const COMPUTER_REACTION_TIME = 30;
+
+    const COLORS = [
+        '#000000',
+        '#ff0000',
+        '#00ff00',
+        '#ffff00',
+        '#ff00d4',
+        '#00ffff',
+        '#ff8600',
+        '#8400ff',
+
+    ];
+
+    const MATTED_COLORS = [
+        '#000000',
+        '#ffbdbd',
+        '#d0ffd0',
+        '#ffffc3',
+        '#ffe8fb',
+        '#caffff',
+        '#ffe8c6',
+        '#d9bbfa',
+    ];
 
     const music = new Audio();
     music.src = 'music.m4a';
@@ -256,35 +280,37 @@
         const renderY = 0;
         context.fillStyle = '#020b25';
         context.fillRect(renderX, 0, renderX + 120, 120);
-
-        context.fillStyle = 'red';
         const piece = pieces[nextPiece][nextRotation];
         let i = 0;
         for (let y = 0; y < 4; y++) {
             for (let x = 0; x < 4; x++) {
-                if (piece[i])
+                const p = piece[i];
+                if (p) {
+                    context.fillStyle = COLORS[p];
                     context.fillRect(
                         x * TILE_WIDTH + (TILE_WIDTH - TILE_INNER_WIDTH) / 2 + renderX,
                         y * TILE_HEIGHT + (TILE_HEIGHT - TILE_INNER_HEIGHT) / 2 + renderY,
                         TILE_INNER_WIDTH,
                         TILE_INNER_HEIGHT);
+                }
                 i++;
             }
         }
-
     }
 
-    function renderField(context, field, color) {
-        context.fillStyle = color;
+    function renderField(context, field, matted) {
         for (let i = 0; i < 200; i++) {
             const y = Math.floor(i / 10);
             const x = i % 10;
-            if (field[i])
+            const piece = field[i];
+            if (piece > 0) {
+                context.fillStyle = matted ? MATTED_COLORS[piece] : COLORS[piece];
                 context.fillRect(
                     x * TILE_WIDTH + (TILE_WIDTH - TILE_INNER_WIDTH) / 2,
                     y * TILE_HEIGHT + (TILE_HEIGHT - TILE_INNER_HEIGHT) / 2,
                     TILE_INNER_WIDTH,
                     TILE_INNER_HEIGHT);
+            }
 
         }
     }
@@ -331,13 +357,12 @@
 
     function render() {
         const context = canvas.getContext('2d');
-        const time = (new Date()).getTime();
         clearField(context);
-        renderField(context, field, '#aaa');
-        const pieceField = Array(200).fill(false);
+        renderField(context, field, true);
+        const pieceField = Array(200).fill(0);
         addPiece(pieceField, pieces[currentPiece][currentRotation], pieceX, pieceY);
         if (state === 'NORMAL') {
-            renderField(context, pieceField, '#f00');
+            renderField(context, pieceField, false);
         }
         renderNextPiece(context);
         if (state === 'BURN') {
@@ -349,7 +374,7 @@
     }
 
     function copyField(field) {
-        const copy = Array(200).fill(false);
+        const copy = Array(200).fill(0);
         for (let i = 0; i < 200; i++) {
             copy[i] = field[i];
         }
@@ -359,8 +384,9 @@
     function addPiece(field, piece, x, y) {
         for (let dy = 0; dy < 4; dy++) {
             for (let dx = 0; dx < 4; dx++) {
-                if (piece[dy * 4 + dx]) {
-                    field[(dy + y) * 10 + (dx + x)] = true;
+                const p = piece[dy * 4 + dx];
+                if (p > 0) {
+                    field[(dy + y) * 10 + (dx + x)] = p;
                 }
             }
         }
@@ -513,7 +539,6 @@
                 i++;
             }
         }
-
         let holes = 0;
         for (let x = 0; x < 10; x++) {
             let run = 0;
@@ -529,8 +554,6 @@
 
             }
         }
-
-
         return -heightUsed - holes;
     }
 
@@ -559,20 +582,16 @@
                 }
             }
         }
-
         y--;
         return y;
     }
 
-
     function evaluateWorstCase(field) {
         let minEvaluation = 100000;
-
         for(let pieceType = 0; pieceType < pieces.length; pieceType++) {
             let maxEvaluation = -100000;
             for(let rotation = 0; rotation < pieces[pieceType].length; rotation++) {
                 const piece = pieces[pieceType][rotation];
-
                 for (let x = -1; x < 9; x++) {
                     const y = dropPiece(field, piece, x);
                     if (y < 0) continue;
@@ -622,11 +641,7 @@
         console.log(fieldToString(futureField));
         console.log(ev);
         return ev;
-
-
-        // return Math.random();
     }
-
 
     function computerThink() {
         if(!computerPlay) return;
@@ -653,6 +668,7 @@
                 burnLines();
                 [currentPiece, currentRotation] = [nextPiece, nextRotation];
                 [nextPiece, nextRotation] = pickPiece();
+                console.log('cp' + currentPiece);
                 if (burnLinesY.length === 0 && pieceY === startY) {
                     state = 'GAME_OVER';
                     music.pause();
